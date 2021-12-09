@@ -119,9 +119,10 @@ There are more examples in the folder [examples](src/main/examples/com/github/fo
 
 ## How to build
 
-Use the latest early access build of loom [http://jdk.java.net/loom](http://jdk.java.net/loom)
-and use maven.
+Download the latest early access build of loom [http://jdk.java.net/loom](http://jdk.java.net/loom)
+set the environment variable JAVA_HOME to point to that JDK and then use Maven.
 
 ```
+  export JAVA_HOME=/path/to/jdk
   mvn package
 ```
