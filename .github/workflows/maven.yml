@@ -12,6 +12,9 @@ jobs:
       - uses: actions/checkout@v2
       - name: setup
         uses: sormuras/setup-jdk@main
+        with:
+          website: java.net
+          feature: Loom
       - name: build
         run: |
           mvn -B package
