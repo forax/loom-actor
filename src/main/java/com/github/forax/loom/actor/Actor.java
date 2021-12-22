@@ -1,6 +1,11 @@
 package com.github.forax.loom.actor;
 
+import java.io.Serializable;
+import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodHandles.Lookup;
+import java.lang.invoke.MethodType;
+import java.lang.invoke.SerializedLambda;
 import java.lang.invoke.VarHandle;
 import java.util.List;
 import java.util.Objects;
@@ -9,6 +14,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 /**
  * An actor library lika Akka or Erlang.
@@ -209,7 +215,7 @@ public final class Actor<B> {
    * @see Context#postTo(Actor, Message)
    */
   @FunctionalInterface
-  public interface Message<B> {
+  public interface Message<B> extends Serializable {
     void accept(B behavior) throws Exception;
   }
 
@@ -266,6 +272,10 @@ public final class Actor<B> {
      * @param actor the actor that will receive the message
      * @param message the message
      * @param <B> the type of the behavior
+     *
+     * @throws IllegalStateException if the message is not immutable and the debug mode is on
+     *
+     * @see #debugMode(Function, Predicate)
      */
     <B> void postTo(Actor<B> actor, Message<? super B> message);
 
@@ -289,6 +299,10 @@ public final class Actor<B> {
      * @param actor the actor that will receive the message
      * @param message the message
      * @param <B> the type of the behavior
+     *
+     * @throws IllegalStateException if the message is not immutable and the debug mode is on
+     *
+     * @see #debugMode(Function, Predicate)
      */
     <B> void postTo(Actor<B> actor, Message<? super B> message);
 
@@ -341,6 +355,10 @@ public final class Actor<B> {
      * @param actor the actor that will receive the message
      * @param message the message
      * @param <B> the type of the behavior
+     *
+     * @throws IllegalStateException if the message is not immutable and the debug mode is on
+     * 
+     * @see #debugMode(Function, Predicate)
      */
     <B> void postTo(Actor<B> actor, Message<? super B> message);
 
@@ -463,6 +481,9 @@ public final class Actor<B> {
     public <B> void postTo(Actor<B> actor, Message<? super B> message) {
       Objects.requireNonNull(actor);
       Objects.requireNonNull(message);
+      if (Debug.MODE != null) {
+        Debug.checkMessage(message);
+      }
       actor.mailbox.offer(message);
     }
 
@@ -487,7 +508,7 @@ public final class Actor<B> {
     public void shutdown() {
       var currentActor = currentActor();
       var shutdownConsumer = new SignalMessage(ShutdownSignal.INSTANCE, true);  // async
-      postTo(currentActor, shutdownConsumer);
+      currentActor.mailbox.offer(shutdownConsumer);
     }
 
     @Override
@@ -504,7 +525,7 @@ public final class Actor<B> {
         throw new IllegalActorStateException("an actor can not signal itself");
       }
       var signalConsumer = new SignalMessage(signal, false);  // synchronous
-      postTo(actor, signalConsumer);
+      actor.mailbox.offer(signalConsumer);
       signalConsumer.join();
     }
   }
@@ -749,6 +770,93 @@ public final class Actor<B> {
     Objects.requireNonNull(uncaughtExceptionHandler);
     if (!UNCAUGHT_EXCEPTION_HANDLER.compareAndSet(DEFAULT_UNCAUGHT_EXCEPTION_HANDLER, uncaughtExceptionHandler)) {
       throw new IllegalActorStateException("uncaught exception handler already set");
+    }
+  }
+
+  private static class Debug {
+    private record Mode(Function<? super Module, ? extends Lookup> lookupMatcher,
+                        Predicate<? super Class<?>> isImmutable) { }
+
+    private static final Mode MODE = Actor.debugModeCandidate;
+
+    private static void checkImmutable(Class<?> type, Predicate<? super Class<?>> isImmutable) {
+      // default immutable classes
+      if (type.isPrimitive() || type.isEnum() || type == String.class || type == Class.class) {
+        return;
+      }
+      // record are only unmodifiable, check if components type are immutable
+      if (type.isRecord()) {
+        for(var component: type.getRecordComponents()) {
+          checkImmutable(component.getType(), isImmutable);
+        }
+      }
+      // immutable collections
+      var enclosingClass = type.getEnclosingClass();
+      if (enclosingClass != null && enclosingClass.getName().equals("java.util.ImmutableCollections")) {
+        return;
+      }
+      // user defined immutable
+      if (isImmutable.test(type)) {
+        return;
+      }
+      throw new IllegalStateException(type.getName() + " is not immutable");
+    }
+
+    public static void checkMessage(Message<?> message) {
+      var debugMode = MODE;
+      Class<?> messageClass = message.getClass();
+      if (!messageClass.isHidden()) {
+        throw new IllegalStateException("the message " + message + " is not a lambda ?");
+      }
+      var module = messageClass.getModule();
+      var lookup = debugMode.lookupMatcher.apply(module);
+      Objects.requireNonNull(lookup, "the lookup returned by the lookupMatcher is null");
+      SerializedLambda lambda;
+      try {
+        Lookup privateLookup = MethodHandles.privateLookupIn(messageClass, lookup);
+        MethodHandle writeReplace = privateLookup.findVirtual(messageClass, "writeReplace", MethodType.methodType((Object.class)));
+        lambda = (SerializedLambda) writeReplace.invoke(message);
+      } catch (RuntimeException | Error e) {
+        throw e;
+      } catch(Throwable e) {
+        throw new IllegalStateException("cracking lambda failed", e);
+      }
+
+      for(var i = 0; i < lambda.getCapturedArgCount(); i++) {
+        var argument = lambda.getCapturedArg(i);
+        if (argument != null) {
+          checkImmutable(argument.getClass(), debugMode.isImmutable);
+        }
+      }
+    }
+  }
+
+  private static volatile Debug.Mode debugModeCandidate;
+
+  /**
+   * Set the debug mode to on so all messages are checked to verify that they are immutable.
+   * This method can only be called once and before any messages is posted.
+   *
+   * @param lookupMatcher function called to provide a lookup for a module
+   *   used to open the lambdas used as messages in that module
+   * @param isImmutable return true if a class is immutable
+   *
+   * @see Context#postTo(Actor, Message)
+   * @see StartupContext#postTo(Actor, Message)
+   * @see HandlerContext#postTo(Actor, Message)
+   */
+  public static void debugMode(Function<? super Module, ? extends Lookup> lookupMatcher,
+                               Predicate<? super Class<?>> isImmutable) {
+    Objects.requireNonNull(lookupMatcher);
+    Objects.requireNonNull(isImmutable);
+    var debugMode = new Debug.Mode(lookupMatcher, isImmutable);
+    debugModeCandidate = debugMode;
+    try {
+      if (Debug.MODE != debugMode) {
+        throw new IllegalStateException("debug mode already set");
+      }
+    } finally {
+      debugModeCandidate = null;
     }
   }
 }

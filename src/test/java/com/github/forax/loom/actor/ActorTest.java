@@ -7,6 +7,7 @@ import com.github.forax.loom.actor.Actor.State;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
+import java.lang.invoke.MethodHandles;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -22,6 +23,8 @@ public class ActorTest {
     Actor.uncaughtExceptionHandler((actor, exception) -> {
       // ignore exceptions
     });
+    // checks that all messages are immutable
+    Actor.debugMode(__ -> MethodHandles.lookup(), __ -> false);
   }
 
   @Test
@@ -33,7 +36,7 @@ public class ActorTest {
     );
   }
 
-  @Test @Timeout(value = 500, unit = MILLISECONDS)
+  @Test @Timeout(value = 5_000, unit = MILLISECONDS)
   public void stateRunning() throws InterruptedException {
     interface Simple {
       void message();
@@ -92,7 +95,7 @@ public class ActorTest {
     new Thread(() -> assertThrows(IllegalActorStateException.class, () -> actor.behavior(context -> () -> {}))).start();
   }
 
-  @Test @Timeout(value = 500, unit = MILLISECONDS)
+  @Test @Timeout(value = 5_000, unit = MILLISECONDS)
   public void behaviorSeveralMessages() throws InterruptedException {
     interface Dummy {
       void foo(String message);
@@ -137,7 +140,7 @@ public class ActorTest {
     new Thread(() -> assertThrows(IllegalActorStateException.class, () -> actor.onSignal((signal, context) -> {}))).start();
   }
 
-  @Test @Timeout(value = 500, unit = MILLISECONDS)
+  @Test @Timeout(value = 5_000, unit = MILLISECONDS)
   public void onSignalException() throws InterruptedException {
     interface Transparent {
       void message(Exception exception) throws Exception;
@@ -162,7 +165,7 @@ public class ActorTest {
     );
   }
 
-  @Test @Timeout(value = 500, unit = MILLISECONDS)
+  @Test @Timeout(value = 5_000, unit = MILLISECONDS)
   public void onSignalRuntimeException() throws InterruptedException {
     var exceptionSeen = new AtomicBoolean();
     var actor = Actor.of(Runnable.class)
@@ -184,7 +187,7 @@ public class ActorTest {
     );
   }
 
-  @Test @Timeout(value = 500, unit = MILLISECONDS)
+  @Test @Timeout(value = 5_000, unit = MILLISECONDS)
   public void onSignalInterrupted() throws InterruptedException {
     var exceptionSeen = new AtomicBoolean();
     var actor = Actor.of(Runnable.class)
@@ -203,7 +206,7 @@ public class ActorTest {
     );
   }
 
-  @Test @Timeout(value = 500, unit = MILLISECONDS)
+  @Test @Timeout(value = 5_000, unit = MILLISECONDS)
   public void onSignalInterruptedExplicitException() throws InterruptedException {
     interface Action {
       void run() throws InterruptedException;
@@ -227,7 +230,7 @@ public class ActorTest {
     );
   }
 
-  @Test @Timeout(value = 500, unit = MILLISECONDS)
+  @Test @Timeout(value = 5_000, unit = MILLISECONDS)
   public void onSignalExceptionInSignalHandler() throws InterruptedException {
     var exceptionSeen = new AtomicBoolean();
     var actor = Actor.of(Runnable.class)
@@ -244,7 +247,7 @@ public class ActorTest {
     );
   }
 
-  @Test @Timeout(value = 500, unit = MILLISECONDS)
+  @Test @Timeout(value = 5_000, unit = MILLISECONDS)
   public void currentActor() throws InterruptedException {
     var box = new Object() { Actor<Runnable> actor; };
     var actor = Actor.of(Runnable.class);
@@ -256,7 +259,7 @@ public class ActorTest {
     assertSame(actor, box.actor);
   }
 
-  @Test @Timeout(value = 500, unit = MILLISECONDS)
+  @Test @Timeout(value = 5_000, unit = MILLISECONDS)
   public void currentActorWrongBehaviorClass() throws InterruptedException {
     var box = new Object() { Exception exception; };
     var actor = Actor.of(Runnable.class)
@@ -268,7 +271,7 @@ public class ActorTest {
     assertEquals(IllegalActorStateException.class, box.exception.getClass());
   }
 
-  @Test @Timeout(value = 500, unit = MILLISECONDS)
+  @Test @Timeout(value = 5_000, unit = MILLISECONDS)
   public void escapeActorContext() throws InterruptedException {
     var box = new Object() { Actor.Context context; };
     var actor = Actor.of(Runnable.class);
@@ -312,7 +315,7 @@ public class ActorTest {
     assertThrows(IllegalActorStateException.class, () -> Actor.uncaughtExceptionHandler((actor, exception) -> {}));
   }
 
-  @Test @Timeout(value = 500, unit = MILLISECONDS)
+  @Test @Timeout(value = 5_000, unit = MILLISECONDS)
   public void runWithTwoActorsWithSignal() throws InterruptedException {
     interface Dummy {
       void execute();
@@ -326,7 +329,7 @@ public class ActorTest {
     Actor.run(List.of(actor1, actor2), context -> context.postTo(actor1, Dummy::execute));
   }
 
-  @Test @Timeout(value = 500, unit = MILLISECONDS)
+  @Test @Timeout(value = 5_000, unit = MILLISECONDS)
   public void runWithTwoActorsWithPostTo() throws InterruptedException {
     interface Ops1 {
       void execute();
@@ -356,12 +359,9 @@ public class ActorTest {
 
   @Test @Timeout(value = 5_000, unit = MILLISECONDS)
   public void runAndRestart() throws InterruptedException {
-    class Box {
-      int result;
-    }
     interface Ops {
       void execute(int value);
-      void result(Box box);
+      void checkEquals(int expected);
     }
     var shouldRestart = new AtomicBoolean(true);
     var actor = Actor.of(Ops.class)
@@ -377,8 +377,8 @@ public class ActorTest {
           }
 
           @Override
-          public void result(Box box) {
-            box.result = sum;
+          public void checkEquals(int expected) {
+            assertEquals(expected, sum);
           }
         })
         .onSignal((signal, context) -> {
@@ -387,7 +387,6 @@ public class ActorTest {
             context.restart();
           }
         });
-    var box = new Box();
     Actor.run(List.of(actor), context -> {
       context.postTo(actor, $ -> $.execute(10));
       context.postTo(actor, $ -> $.execute(-13));
@@ -397,13 +396,12 @@ public class ActorTest {
         throw new AssertionError(e);
       }
       context.postTo(actor, $ -> $.execute(32));
-      context.postTo(actor, $ -> $.result(box));
+      context.postTo(actor, $ -> $.checkEquals(32));
       context.postTo(actor, $ -> $.execute(-101));
     });
-    assertEquals(32, box.result);
   }
 
-  @Test @Timeout(value = 500, unit = MILLISECONDS)
+  @Test @Timeout(value = 5_000, unit = MILLISECONDS)
   public void runAndSpawnFromActor() throws InterruptedException {
     interface Behavior {
       void execute();
@@ -433,7 +431,7 @@ public class ActorTest {
     });
   }
 
-  @Test @Timeout(value = 500, unit = MILLISECONDS)
+  @Test @Timeout(value = 5_000, unit = MILLISECONDS)
   public void runAndSpawn() throws InterruptedException {
     var actor1 = Actor.of(Runnable.class);
     var actor2 = Actor.of(Runnable.class);
