@@ -11,7 +11,7 @@ An actor uses a virtual thread (also called coroutine) to run, it consumes messa
 and can post messages to other actors.
 
 Unlike a traditional actor system, the messages are lambdas that do a method call so the actor API is
-a class (or an enum, record or even a lambda).
+a class (or an enum, a record or even a lambda).
 
 Moreover, the Actor API defines 3 different contexts
 - the startup context, inside the consumer of `Actor.run(actor, code)`, the actions available are
@@ -23,6 +23,11 @@ Moreover, the Actor API defines 3 different contexts
 - the handler context, inside the `àctor.onSignal(signalHandler)`, the actions available are
   `postTo(actor, message)` to post a message to an actor, `restart()` to restart an actor whith a fresh behavior
   and `signal(actor, signal)` to send a signal message (an exception or a shutdown) to another actor.
+
+During the development or tests, there is a debug mode `actor.debugMode(lookupMatcher, isImmutable)` that
+checks that all posted messages are immutable. It has a runtime cost that why it's not enable by default. 
+
+### A simple example
 
 Here is a simple example, `Actor.of()` create an actor, `behavior(factory)` defines the behavior, all the public
 methods are message entry points. `Actors.run(actors, code)` spawn all the actors, run the code and
@@ -52,6 +57,8 @@ public class HelloMain {
   }
 }
 ```
+
+## A JSON server example
 
 Another example is an HTTP server using an actor to implement a REST API using JSON.
 The request body and the response body are JSON message that are automatically converted using Jackson.
