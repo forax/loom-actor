@@ -58,7 +58,7 @@ public class HelloMain {
 }
 ```
 
-## A JSON server example
+### A JSON server example
 
 Another example is an HTTP server using an actor to implement a REST API using JSON.
 The request body and the response body are JSON message that are automatically converted using Jackson.
