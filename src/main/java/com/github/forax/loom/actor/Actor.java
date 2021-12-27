@@ -52,6 +52,9 @@ import java.util.function.Predicate;
  *   {@link HandlerContext#signal(Actor, Signal) signal}.</li>
  * </ol>
  *
+ * During the development or tests, there is a debug mode {@link #debugMode(Function, Predicate)} that
+ * checks that all posted messages are immutable. It has a runtime cost that why it's not enable by default.
+ * 
  * The actor and its behavior are declared separately. {@link #of(Class, String) Actor.of()} creates an actor,
  * and {@link #behavior(Function) behavior(factory)} associates the behavior to an actor.
  * <pre>
@@ -837,9 +840,9 @@ public final class Actor<B> {
    * Set the debug mode to on so all messages are checked to verify that they are immutable.
    * This method can only be called once and before any messages is posted.
    *
-   * @param lookupMatcher function called to provide a lookup for a module
+   * @param lookupMatcher a function called to provide a lookup for a module
    *   used to open the lambdas used as messages in that module
-   * @param isImmutable return true if a class is immutable
+   * @param isImmutable a function that returns true if a class is immutable
    *
    * @see Context#postTo(Actor, Message)
    * @see StartupContext#postTo(Actor, Message)
@@ -853,7 +856,7 @@ public final class Actor<B> {
     debugModeCandidate = debugMode;
     try {
       if (Debug.MODE != debugMode) {
-        throw new IllegalStateException("debug mode already set");
+        throw new IllegalStateException("debug mode already set or a least one message was already sent");
       }
     } finally {
       debugModeCandidate = null;
