@@ -1,5 +1,7 @@
 package com.github.forax.loom.actor;
 
+import jdk.incubator.concurrent.ScopeLocal;
+
 import java.io.Serializable;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -151,7 +153,7 @@ public final class Actor<B> {
   private static volatile UncaughtExceptionHandler uncaughtExceptionHandler = DEFAULT_UNCAUGHT_EXCEPTION_HANDLER;
   @SuppressWarnings("FieldMayBeFinal")
   private static volatile int actorCounter = 1;
-  private static final ScopeLocal<Actor<?>> CURRENT_ACTOR = ScopeLocal.newInstance();
+  private static final StackLocal<Actor<?>> CURRENT_ACTOR = StackLocal.newInstance();
   private final Thread ownerThread;
   private final Class<B> behaviorType;
   private final String name;
@@ -161,6 +163,59 @@ public final class Actor<B> {
   private final ConcurrentSkipListMap<Integer, SignalHandler> signalHandlers = new ConcurrentSkipListMap<>();
   private /*stable*/ Function<? super Context, ? extends B> behaviorFactory;
   private volatile State state = State.CREATED;
+
+  // use jdk.incubator.concurrent.ScopeLocal if available at runtime or java.lang.ThreadLocal otherwise
+  private record StackLocal<T>(Object stackLocal) {
+    private static final boolean SCOPE_LOCAL_AVAILABLE;
+    static {
+      boolean scopeLocalAvailable;
+      try {
+        Class.forName("jdk.incubator.concurrent.ScopeLocal");
+        scopeLocalAvailable = true;
+      } catch(ClassNotFoundException e) {
+        scopeLocalAvailable = false;
+      }
+      SCOPE_LOCAL_AVAILABLE = scopeLocalAvailable;
+    }
+
+    @SuppressWarnings("unchecked")
+    public boolean isBound() {
+      if (SCOPE_LOCAL_AVAILABLE) {
+        return ((ScopeLocal<T>) stackLocal).isBound();
+      }
+      return ((ThreadLocal<T>) stackLocal).get() != null;
+    }
+
+    @SuppressWarnings("unchecked")
+    public T get() {
+      if (SCOPE_LOCAL_AVAILABLE) {
+        return ((ScopeLocal<T>) stackLocal).get();
+      }
+      return ((ThreadLocal<T>) stackLocal).get();
+    }
+
+    @SuppressWarnings("unchecked")
+    public static <T> void where(StackLocal<T> stackLocal, T value, Runnable runnable) {
+      if (SCOPE_LOCAL_AVAILABLE) {
+        ScopeLocal.where((ScopeLocal<T>) stackLocal.stackLocal, value, runnable);
+      } else {
+        var threadLocal = (ThreadLocal<T>) stackLocal.stackLocal;
+        threadLocal.set(value);
+        try {
+          runnable.run();
+        } finally {
+          threadLocal.remove();
+        }
+      }
+    }
+
+    public static <T> StackLocal<T> newInstance() {
+      if (SCOPE_LOCAL_AVAILABLE) {
+        return new StackLocal<>(ScopeLocal.newInstance());
+      }
+      return new StackLocal<>(new ThreadLocal<>());
+    }
+  }
 
   /**
    * State of an actor
@@ -644,7 +699,7 @@ public final class Actor<B> {
     }
     //return Thread.ofPlatform().name(actor.name).start(() -> {
     return Thread.ofVirtual().name(actor.name).start(() -> {
-      ScopeLocal.where(CURRENT_ACTOR, actor, () -> {
+      StackLocal.where(CURRENT_ACTOR, actor, () -> {
         var behavior = actor.behaviorFactory.apply(context);
         for (;;) {
           try {
