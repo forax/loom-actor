@@ -1,6 +1,6 @@
 package com.github.forax.loom.actor;
 
-import jdk.incubator.concurrent.ScopeLocal;
+import jdk.incubator.concurrent.ExtentLocal;
 
 import java.io.Serializable;
 import java.lang.invoke.MethodHandle;
@@ -181,7 +181,7 @@ public final class Actor<B> {
     @SuppressWarnings("unchecked")
     public boolean isBound() {
       if (SCOPE_LOCAL_AVAILABLE) {
-        return ((ScopeLocal<T>) stackLocal).isBound();
+        return ((ExtentLocal<T>) stackLocal).isBound();
       }
       return ((ThreadLocal<T>) stackLocal).get() != null;
     }
@@ -189,7 +189,7 @@ public final class Actor<B> {
     @SuppressWarnings("unchecked")
     public T get() {
       if (SCOPE_LOCAL_AVAILABLE) {
-        return ((ScopeLocal<T>) stackLocal).get();
+        return ((ExtentLocal<T>) stackLocal).get();
       }
       return ((ThreadLocal<T>) stackLocal).get();
     }
@@ -197,7 +197,7 @@ public final class Actor<B> {
     @SuppressWarnings("unchecked")
     public static <T> void where(StackLocal<T> stackLocal, T value, Runnable runnable) {
       if (SCOPE_LOCAL_AVAILABLE) {
-        ScopeLocal.where((ScopeLocal<T>) stackLocal.stackLocal, value, runnable);
+        ExtentLocal.where((ExtentLocal<T>) stackLocal.stackLocal, value, runnable);
       } else {
         var threadLocal = (ThreadLocal<T>) stackLocal.stackLocal;
         threadLocal.set(value);
@@ -211,7 +211,7 @@ public final class Actor<B> {
 
     public static <T> StackLocal<T> newInstance() {
       if (SCOPE_LOCAL_AVAILABLE) {
-        return new StackLocal<>(ScopeLocal.newInstance());
+        return new StackLocal<>(ExtentLocal.newInstance());
       }
       return new StackLocal<>(new ThreadLocal<>());
     }
