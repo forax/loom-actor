@@ -52,9 +52,9 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.8.1</version>
                 <configuration>
-                    <release>19</release>
-                    <source>19</source>
-                    <target>19</target>
+                    <release>20</release>
+                    <source>20</source>
+                    <target>20</target>
                     <compilerArgs>
                         <arg>--enable-preview</arg>
                         <arg>--add-modules=jdk.incubator.concurrent</arg>
