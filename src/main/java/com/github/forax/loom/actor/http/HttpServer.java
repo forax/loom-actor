@@ -41,7 +41,7 @@ public class HttpServer {
   /**
    * HTTP request method.
    *
-   * see https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods
+   * see <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods">HTTP Methods</a>
    */
   public enum RequestMethod {
     GET, HEAD, POST, PUT, DELETE, CONNECT, OPTIONS, TRACE, PATCH
@@ -50,7 +50,7 @@ public class HttpServer {
   /**
    * HTTP response status.
    *
-   * see https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
+   * see <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status">HTTP Status</a>
    */
   public enum HttpStatus {
     CONTINUE(100),
@@ -124,7 +124,7 @@ public class HttpServer {
    * The method annotated by this annotation defines a route.
    *
    * The semantics is similar to the Spring Web Annotation with the same name.
-   * see https://www.baeldung.com/spring-mvc-annotations
+   * see <a href="https://www.baeldung.com/spring-mvc-annotations">Spring MVC annotations</a>
    *
    * @see #routes(Actor)
    */
@@ -140,7 +140,7 @@ public class HttpServer {
    * the request body as a JSON object/array.
    *
    * The semantics is similar to the Spring Web Annotation with the same name.
-   * see https://www.baeldung.com/spring-mvc-annotations
+   * see <a href="https://www.baeldung.com/spring-mvc-annotations">Spring MVC annotations</a>
    *
    * @see #routes(Actor)
    */
@@ -153,7 +153,7 @@ public class HttpServer {
    * the value captured from the request URI.
    *
    * The semantics is similar to the Spring Web Annotation with the same name.
-   * see https://www.baeldung.com/spring-mvc-annotations
+   * see <a href="https://www.baeldung.com/spring-mvc-annotations">Spring MVC annotations</a>
    *
    * @see #routes(Actor)
    */
@@ -169,7 +169,7 @@ public class HttpServer {
    * the header does not exist.
    *
    * The semantics is similar to the Spring Web Annotation with the same name.
-   * see https://www.baeldung.com/spring-mvc-annotations
+   * see <a href="https://www.baeldung.com/spring-mvc-annotations">Spring MVC annotations</a>
    *
    * @see #routes(Actor)
    */
@@ -373,7 +373,7 @@ public class HttpServer {
    * Add the routes defined by the actor behavior to the server.
    * When a HTTP request calls the server, it redirects the call to the actors dependening on the routes
    * they declared.
-   *
+   * <p>
    * A method of the actor behavior annotated with {@link RequestMapping} declares a new route.
    * The annotation {@link RequestMapping} defines
    * <ul>
@@ -385,8 +385,8 @@ public class HttpServer {
    *     A path should never ends with a slash '/' and can include request parameter name "{foo}" in between
    *     curly braces.
    *    <p>
-   *     By example: <tt>/users</tt> match the URI "/users" while <tt>/users/{id}</tt> match any URIs that starts
-   *     with "/users". The value matched by <tt>{if}</tt> is available using the annotation {@link RequestParam}.
+   *     By example: {@code /users} match the URI "/users" while {@code /users/{id}} match any URIs that starts
+   *     with "/users". The value matched by {@code {if}} is available using the annotation {@link RequestParam}.
    *   </li>
    * </ul>
    *
@@ -401,7 +401,7 @@ public class HttpServer {
    * </ul>
    *
    * Moreover, the method should define the actor that will receive the response.
-   * The type of the actor is <tt>Actor<Response<X></tt> with <tt>X</tt> being a record, a list of record
+   * The type of the actor is {@code Actor<Response<X>} with @code X} being a record, a list of record
    * or java.lang.Void if the result is null.
    *
    * @param actor the actor defining the routes

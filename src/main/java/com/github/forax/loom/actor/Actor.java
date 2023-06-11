@@ -1,7 +1,5 @@
 package com.github.forax.loom.actor;
 
-import jdk.incubator.concurrent.ScopedValue;
-
 import java.io.Serializable;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -20,7 +18,7 @@ import java.util.function.Predicate;
 
 /**
  * An actor library lika Akka or Erlang.
- *
+ * <p>
  * This library supports either a static description of the actor graph using the method
  * {@link #run(List, StartupConsumer)} or a more dynamic approach by {@link Context#spawn(Actor) spawning}
  * actors from a parent actor.
@@ -56,7 +54,7 @@ import java.util.function.Predicate;
  *
  * During the development or tests, there is a debug mode {@link #debugMode(Function, Predicate)} that
  * checks that all posted messages are immutable. It has a runtime cost that why it's not enable by default.
- * 
+ * <p>
  * The actor and its behavior are declared separately. {@link #of(Class, String) Actor.of()} creates an actor,
  * and {@link #behavior(Function) behavior(factory)} associates the behavior to an actor.
  * <pre>
@@ -197,7 +195,7 @@ public final class Actor<B> {
     @SuppressWarnings("unchecked")
     public static <T> void where(StackLocal<T> stackLocal, T value, Runnable runnable) {
       if (SCOPE_LOCAL_AVAILABLE) {
-        ScopedValue.where((ScopedValue<T>) stackLocal.stackLocal, value, runnable);
+        ScopedValue.runWhere((ScopedValue<T>) stackLocal.stackLocal, value, runnable);
       } else {
         var threadLocal = (ThreadLocal<T>) stackLocal.stackLocal;
         threadLocal.set(value);
@@ -631,8 +629,8 @@ public final class Actor<B> {
   /**
    * Returns the behavior type.
    * @return the behavior type
-   * 
-   * {@link Actor#of(Class, String)}
+   *
+   * @see Actor#of(Class, String)
    */
   public Class<B> behaviorType() {
     return behaviorType;
