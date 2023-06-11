@@ -1,7 +1,7 @@
 # Loom Actor
 A small but fun actor framework based on loom
 
-Loom is now fully integrated into the jdk 20
+Loom is now fully integrated into the jdk 21
 [https://jdk.java.net/](https://jdk.java.net/).
 
 ## How to use the API
@@ -126,7 +126,7 @@ There are more examples in the folder [examples](src/main/examples/com/github/fo
 
 ## How to build
 
-Download the latest early access build of jdk 20 [http://jdk.java.net/](http://jdk.java.net/)
+Download the latest early access build of jdk 21 [http://jdk.java.net/](http://jdk.java.net/)
 set the environment variable JAVA_HOME to point to that JDK and then use Maven.
 
 ```
