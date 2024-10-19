@@ -195,7 +195,7 @@ public final class Actor<B> {
     @SuppressWarnings("unchecked")
     public static <T> void where(StackLocal<T> stackLocal, T value, Runnable runnable) {
       if (SCOPE_LOCAL_AVAILABLE) {
-        ScopedValue.runWhere((ScopedValue<T>) stackLocal.stackLocal, value, runnable);
+        ScopedValue.where((ScopedValue<T>) stackLocal.stackLocal, value).run(runnable);
       } else {
         var threadLocal = (ThreadLocal<T>) stackLocal.stackLocal;
         threadLocal.set(value);
